@@ -1,0 +1,13 @@
+# 忽略 Python 缓存
+__pycache__/
+*.py[cod]
+
+# 忽略大型权重文件和数据集
+*.bin
+*.pth
+*.jsonl
+data/
+
+# 忽略虚拟环境
+venv/
+.env
