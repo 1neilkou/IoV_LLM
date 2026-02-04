@@ -1,13 +1,20 @@
-# 忽略 Python 缓存
+# 忽略 Python 运行缓存
 __pycache__/
 *.py[cod]
+*$py.class
 
-# 忽略大型权重文件和数据集
+# 忽略权重文件和数据集 (大模型项目必备)
 *.bin
 *.pth
+*.model
 *.jsonl
 data/
+logs/
 
-# 忽略虚拟环境
+# 忽略本地环境和虚拟环境
+.venv/
 venv/
 .env
+
+# 忽略 VS Code 自己的配置
+.vscode/
