@@ -18,3 +18,13 @@ venv/
 
 # 忽略 VS Code 自己的配置
 .vscode/
+
+# 忽略所有模型权重
+models/
+# 如果你有 output 文件夹存放微调后的权重，也建议忽略
+output/
+# 忽略数据集中的 JSONL 文件（如果是私有或较大的话）
+data/*.jsonl
+# 忽略 Python 缓存和日志
+__pycache__/
+*.log
