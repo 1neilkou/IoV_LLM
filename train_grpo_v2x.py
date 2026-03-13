@@ -45,24 +45,42 @@ model_id = "./models/Qwen2.5-7B-Instruct"
 #     return rewards
 
 # 2. 定义奖励函数 (确保这里是顶格的)
+# def reward_function(completions, **kwargs):
+#     rewards = []
+#     for content in completions:
+#         score = 0.0
+#         # 1. 只要开口分析了，给 1 分 (鼓励探索)
+#         if any(w in content for w in ["分析", "计算", "延迟", "带宽"]):
+#             score += 1.0
+        
+#         # 2. 模糊决策匹配 (去掉中括号限制，只要包含关键字就给分)
+#         # 并且大幅度拉开差距：卸载(10分) vs 本地(2分)
+#         if "卸载" in content or "边缘" in content:
+#             score += 10.0  # 极高奖励，诱导模型尝试这个动作
+#         elif "本地" in content:
+#             score += 2.0   
+        
+#         # 3. 惩罚项：如果完全没做决策，得分为 0
+#         if "本地" not in content and "卸载" not in content and "边缘" not in content:
+#             score = 0.0
+            
+#         rewards.append(score)
+#     return rewards
 def reward_function(completions, **kwargs):
     rewards = []
     for content in completions:
         score = 0.0
-        # 1. 只要开口分析了，给 1 分 (鼓励探索)
-        if any(w in content for w in ["分析", "计算", "延迟", "带宽"]):
-            score += 1.0
+        # 1. 逻辑分 (CoT) - 增加权重，强制它先思考
+        if "分析" in content and "延迟" in content: score += 2.0
         
-        # 2. 模糊决策匹配 (去掉中括号限制，只要包含关键字就给分)
-        # 并且大幅度拉开差距：卸载(10分) vs 本地(2分)
-        if "卸载" in content or "边缘" in content:
-            score += 10.0  # 极高奖励，诱导模型尝试这个动作
-        elif "本地" in content:
-            score += 2.0   
+        # 2. 决策分 (对齐) - 设为相等，让模型根据逻辑选，而不是根据分数选
+        if "边缘" in content or "卸载" in content:
+            score += 5.0  # 即使没选对，只要敢写“边缘”，就给基础分，鼓励探索
+        if "边缘卸载" in content: score += 3.0
+        if "本地计算" in content: score += 3.0
         
-        # 3. 惩罚项：如果完全没做决策，得分为 0
-        if "本地" not in content and "卸载" not in content and "边缘" not in content:
-            score = 0.0
+        # 3. 物理规则惩罚 (负奖励) - 如果带宽很低还选边缘，扣分
+        # (注：由于 GRPO 很难实时读取外部变量，这里主要靠逻辑分引导)
             
         rewards.append(score)
     return rewards
@@ -83,7 +101,7 @@ def main():
     # 4. 配置 GRPO 超参数
     training_args = GRPOConfig(
         output_dir="./output/iov_qwen_grpo",
-        learning_rate=1e-5,
+        learning_rate=2e-6,
         per_device_train_batch_size=1, 
         # gradient_accumulation_steps=16,
         num_generations=2,            # 5090 建议设为 2
