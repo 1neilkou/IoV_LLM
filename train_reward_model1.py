@@ -66,25 +66,25 @@ def main():
     
     tokenizer = AutoTokenizer.from_pretrained(model_id)
     tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.padding_side = "right"
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     model = AutoModelForSequenceClassification.from_pretrained(
-        model_id, num_labels=1, torch_dtype=torch.bfloat16, device_map="auto",
-    )
-    # # 强制将整个模型移动到当前使用的 GPU，确保梯度计算链路闭环
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # model.to(device) 
+        model_id,
+        num_labels=1,
+        torch_dtype=torch.bfloat16,
+)
 
-    # 修复 C: 显式初始化刚刚 MISSING 的权重 (这是面试加分项)
-    if hasattr(model, "score"):
-        print("🎯 检测到新分类头，正在同步设备并初始化...")
-        # 获取模型主干所在的设备（通常是第一个 parameter 的设备）
-        target_device = next(model.parameters()).device
-        model.score.to(target_device)
+    model.to(device)
+
+    if hasattr(model, "score") and hasattr(model.score, "weight"):
+        print("🎯 检测到新分类头，初始化权重...")
         model.score.weight.data.normal_(mean=0.0, std=0.02)
 
-    # if hasattr(model, "score"):
-    #     print("🎯 检测到新分类头，正在初始化权重...")
-    #     model.score.weight.data.normal_(mean=0.0, std=0.02)
+
+
+
     model.config.pad_token_id = tokenizer.pad_token_id
 
     peft_config = LoraConfig(
@@ -97,8 +97,8 @@ def main():
 
     training_args = TrainingArguments(
         output_dir=output_dir,
-        per_device_train_batch_size=2,
-        gradient_accumulation_steps=8,
+        per_device_train_batch_size=1,
+        gradient_accumulation_steps=16,
         learning_rate=3e-5,
         num_train_epochs=1,
         logging_steps=5,      # 每5步记录一次loss
@@ -108,9 +108,9 @@ def main():
         # 增加这一行，解决 recompute 时的设备索引问题
         gradient_checkpointing_kwargs={"use_reentrant": False}, 
         # 确保只有一张卡时，分布式搜索关闭
-        ddp_find_unused_parameters=False if torch.cuda.device_count() > 1 else None,
+        # ddp_find_unused_parameters=False if torch.cuda.device_count() > 1 else None,
         remove_unused_columns=False,
-        logging_dir=f"{output_dir}/logs", # 日志目录
+        # logging_dir=f"{output_dir}/logs", # 日志目录
         report_to="none"      # 如果没有WandB，设为none
     )
 
